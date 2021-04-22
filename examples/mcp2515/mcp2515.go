@@ -41,7 +41,7 @@ func main() {
 			for _, b := range msg.Data {
 				fmt.Printf("%02X ", b)
 			}
-			fmt.Println()
+			fmt.Print("\r\n")
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
