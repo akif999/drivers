@@ -89,6 +89,8 @@ smoke-test:
 	@md5sum ./build/test.hex
 	tinygo build -size short -o ./build/test.hex -target=itsybitsy-m0 ./examples/mcp3008/main.go
 	@md5sum ./build/test.hex
+	tinygo build -size short -o ./build/test.hex -target=itsybitsy-m0 ./examples/mcp2515/main.go
+	@md5sum ./build/test.hex
 	tinygo build -size short -o ./build/test.hex -target=microbit ./examples/microbitmatrix/main.go
 	@md5sum ./build/test.hex
 	tinygo build -size short -o ./build/test.hex -target=itsybitsy-m0 ./examples/mma8653/main.go
