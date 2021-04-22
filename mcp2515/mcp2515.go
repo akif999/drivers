@@ -10,17 +10,19 @@ import (
 	"fmt"
 	"machine"
 	"time"
+
+	"tinygo.org/x/drivers"
 )
 
 // Device wraps MCP2515 SPI CAN Module.
 type Device struct {
-	bus     machine.SPI
+	bus     drivers.SPI
 	cs      machine.Pin
 	mcpMode byte
 }
 
 // New returns a new MCP2515 driver. Pass in a fully configured SPI bus.
-func New(b machine.SPI, csPin machine.Pin) *Device {
+func New(b drivers.SPI, csPin machine.Pin) *Device {
 	d := &Device{
 		bus: b,
 		cs:  csPin,
@@ -32,14 +34,6 @@ func New(b machine.SPI, csPin machine.Pin) *Device {
 // Configure sets up the device for communication
 func (d *Device) Configure() {
 	d.cs.Configure(machine.PinConfig{Mode: machine.PinOutput})
-	// TODO: this configuration is must
-	d.bus.Configure(machine.SPIConfig{
-		// Frequency: 4000000,
-		Frequency: 115200,
-		SCK:       machine.SPI0_SCK_PIN,
-		SDO:       machine.SPI0_SDO_PIN,
-		SDI:       machine.SPI0_SDI_PIN,
-		Mode:      0})
 }
 
 const beginTimeoutValue int = 10

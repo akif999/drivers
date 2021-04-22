@@ -9,8 +9,19 @@ import (
 	"tinygo.org/x/drivers/mcp2515"
 )
 
+var (
+	spi   = machine.SPI0
+	csPin = machine.D5
+)
+
 func main() {
-	can := mcp2515.New(machine.SPI0, machine.D5)
+	spi.Configure(machine.SPIConfig{
+		Frequency: 115200,
+		SCK:       machine.SPI0_SCK_PIN,
+		SDO:       machine.SPI0_SDO_PIN,
+		SDI:       machine.SPI0_SDI_PIN,
+		Mode:      0})
+	can := mcp2515.New(spi, csPin)
 	can.Configure()
 	err := can.Begin(mcp2515.CAN500kBps, mcp2515.Clock8MHz)
 	if err != nil {
