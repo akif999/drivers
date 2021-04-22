@@ -153,6 +153,7 @@ func (d *Device) init(speed, clock byte) error {
 
 // Reset resets mcp2515
 func (d *Device) Reset() error {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{mcpReset})
 	// time.Sleep(time.Microsecond * 4)
@@ -331,6 +332,7 @@ func (d *Device) readMsg(msg *CANMsg) error {
 }
 
 func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []byte, error) {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{loadAddr})
 	if err != nil {
@@ -413,6 +415,7 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 	txBufData = append(txBufData, dlc)
 	txBufData = append(txBufData, data...)
 
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{loadAddr})
 	if err != nil {
@@ -435,6 +438,7 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 }
 
 func (d *Device) startTransmission(bufNum uint8) error {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{txSidhToRTS(bufNum)})
 	if err != nil {
@@ -552,6 +556,7 @@ func txSidhToLoad(i uint8) uint8 {
 }
 
 func (d *Device) setRegister(addr, value byte) error {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{mcpWrite})
 	if err != nil {
@@ -572,6 +577,7 @@ func (d *Device) setRegister(addr, value byte) error {
 }
 
 func (d *Device) readRegister(addr byte) (byte, error) {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{mcpRead})
 	if err != nil {
@@ -594,6 +600,7 @@ func (d *Device) readRegister(addr byte) (byte, error) {
 }
 
 func (d *Device) modifyRegister(addr, mask, data byte) error {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{mcpBitMod})
 	if err != nil {
@@ -637,6 +644,7 @@ func (d *Device) requestNewMode(newMode byte) error {
 }
 
 func (d *Device) readStatus() (byte, error) {
+	defer d.cs.High()
 	d.cs.Low()
 	_, err := d.spiReadWrite([]byte{mcpReadStatus})
 	if err != nil {
