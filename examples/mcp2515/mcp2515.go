@@ -17,11 +17,7 @@ func main() {
 		panic(err)
 	}
 
-	led := machine.LED
-	led.Configure(machine.PinConfig{Mode: machine.PinOutput})
-
 	for {
-		led.Toggle()
 		err := can.Tx(0x111, 8, []byte{0x00, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA})
 		if err != nil {
 			log.Fatal(err)
