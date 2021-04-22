@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"machine"
 	"time"
 
@@ -31,12 +30,12 @@ func main() {
 	for {
 		err := can.Tx(0x111, 8, []byte{0x00, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA})
 		if err != nil {
-			log.Fatal(err)
+			failMessage(err.Error())
 		}
 		if can.Received() {
 			msg, err := can.Rx()
 			if err != nil {
-				panic(err)
+				failMessage(err.Error())
 			}
 			fmt.Printf("CAN-ID: %03X dlc: %d data: ", msg.ID, msg.Dlc)
 			for _, b := range msg.Data {
@@ -45,5 +44,12 @@ func main() {
 			fmt.Println()
 		}
 		time.Sleep(time.Millisecond * 500)
+	}
+}
+
+func failMessage(msg string) {
+	for {
+		println(msg)
+		time.Sleep(1 * time.Second)
 	}
 }
