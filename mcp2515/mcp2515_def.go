@@ -356,9 +356,6 @@ const (
 	mcpRxbuf0 = 0x61
 	mcpRxbuf1 = 0x71
 
-	// mcp2515Select()   digitalwrite(spics, low)
-	// mcp2515Unselect() digitalwrite(spics, high)
-
 	mcp2515Ok    = 0
 	mcp2515Fail  = 1
 	mcpAlltxbusy = 2
