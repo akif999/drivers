@@ -16,8 +16,6 @@ import (
 type Device struct {
 	bus     machine.SPI
 	cs      machine.Pin
-	tx      []byte
-	rx      []byte
 	mcpMode byte
 }
 
@@ -26,8 +24,6 @@ func New(b machine.SPI, csPin machine.Pin) *Device {
 	d := &Device{
 		bus: b,
 		cs:  csPin,
-		tx:  make([]byte, 3),
-		rx:  make([]byte, 3),
 	}
 
 	return d
