@@ -18,7 +18,17 @@ import (
 type Device struct {
 	bus     drivers.SPI
 	cs      machine.Pin
+	tx      []byte
+	rx      []byte
+	msg     *CANMsg
 	mcpMode byte
+}
+
+// CANMsg stores CAN message fields
+type CANMsg struct {
+	ID   uint32
+	Dlc  uint8
+	Data []byte
 }
 
 // New returns a new MCP2515 driver. Pass in a fully configured SPI bus.
@@ -26,6 +36,9 @@ func New(b drivers.SPI, csPin machine.Pin) *Device {
 	d := &Device{
 		bus: b,
 		cs:  csPin,
+		tx:  make([]byte, 1),
+		rx:  make([]byte, 1),
+		msg: &CANMsg{},
 	}
 
 	return d
@@ -65,17 +78,10 @@ func (d *Device) Received() bool {
 	return (res & mcpStatRxifMask) != 0x00
 }
 
-type CANMsg struct {
-	ID   uint32
-	Dlc  uint8
-	Data []byte
-}
-
 // Rx returns received CAN message
 func (d *Device) Rx() (*CANMsg, error) {
-	msg := &CANMsg{}
-	err := d.readMsg(msg)
-	return msg, err
+	err := d.readMsg(d.msg)
+	return d.msg, err
 }
 
 // Tx transmits CAN Message
@@ -149,7 +155,7 @@ func (d *Device) init(speed, clock byte) error {
 func (d *Device) Reset() error {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{mcpReset})
+	_, err := d.spiReadWrite(mcpReset)
 	// time.Sleep(time.Microsecond * 4)
 	d.cs.High()
 	if err != nil {
@@ -328,7 +334,7 @@ func (d *Device) readMsg(msg *CANMsg) error {
 func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []byte, error) {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{loadAddr})
+	_, err := d.spiReadWrite(loadAddr)
 	if err != nil {
 		return 0, 0, 0, 0, []byte{}, err
 	}
@@ -338,7 +344,7 @@ func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []by
 		if err != nil {
 			return 0, 0, 0, 0, []byte{}, err
 		}
-		buf[i] = b[0]
+		buf[i] = b
 	}
 	id := uint32((uint32(buf[0]) << 3) + (uint32(buf[1]) >> 5))
 	ext := uint8(0)
@@ -353,7 +359,7 @@ func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []by
 	if err != nil {
 		return 0, 0, 0, 0, []byte{}, err
 	}
-	msgSize := b[0]
+	msgSize := b
 	dlc := uint8(msgSize & mcpDlcMask)
 	rtrBit := uint8(0)
 	if (msgSize & mcpRtrMask) == 0x40 {
@@ -365,7 +371,7 @@ func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []by
 		if err != nil {
 			return 0, 0, 0, 0, []byte{}, err
 		}
-		data = append(data, b[0])
+		data = append(data, b)
 
 	}
 	d.cs.High()
@@ -411,12 +417,12 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{loadAddr})
+	_, err := d.spiReadWrite(loadAddr)
 	if err != nil {
 		return err
 	}
 	for _, data := range txBufData {
-		err := d.spiWrite([]byte{data})
+		err := d.spiWrite(data)
 		if err != nil {
 			return err
 		}
@@ -434,7 +440,7 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 func (d *Device) startTransmission(bufNum uint8) error {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{txSidhToRTS(bufNum)})
+	_, err := d.spiReadWrite(txSidhToRTS(bufNum))
 	if err != nil {
 		return err
 	}
@@ -552,15 +558,15 @@ func txSidhToLoad(i uint8) uint8 {
 func (d *Device) setRegister(addr, value byte) error {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{mcpWrite})
+	_, err := d.spiReadWrite(mcpWrite)
 	if err != nil {
 		return err
 	}
-	_, err = d.spiReadWrite([]byte{addr})
+	_, err = d.spiReadWrite(addr)
 	if err != nil {
 		return err
 	}
-	_, err = d.spiReadWrite([]byte{value})
+	_, err = d.spiReadWrite(value)
 	if err != nil {
 		return err
 	}
@@ -573,11 +579,11 @@ func (d *Device) setRegister(addr, value byte) error {
 func (d *Device) readRegister(addr byte) (byte, error) {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{mcpRead})
+	_, err := d.spiReadWrite(mcpRead)
 	if err != nil {
 		return 0, err
 	}
-	_, err = d.spiReadWrite([]byte{addr})
+	_, err = d.spiReadWrite(addr)
 	if err != nil {
 		return 0, err
 	}
@@ -585,30 +591,27 @@ func (d *Device) readRegister(addr byte) (byte, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(r) < 1 {
-		return 0, errors.New("read SPI buffer is too short")
-	}
 	// time.Sleep(time.Microsecond * 4)
 	d.cs.High()
-	return r[0], nil
+	return r, nil
 }
 
 func (d *Device) modifyRegister(addr, mask, data byte) error {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{mcpBitMod})
+	_, err := d.spiReadWrite(mcpBitMod)
 	if err != nil {
 		return err
 	}
-	_, err = d.spiReadWrite([]byte{addr})
+	_, err = d.spiReadWrite(addr)
 	if err != nil {
 		return err
 	}
-	_, err = d.spiReadWrite([]byte{mask})
+	_, err = d.spiReadWrite(mask)
 	if err != nil {
 		return err
 	}
-	_, err = d.spiReadWrite([]byte{data})
+	_, err = d.spiReadWrite(data)
 	if err != nil {
 		return err
 	}
@@ -640,7 +643,7 @@ func (d *Device) requestNewMode(newMode byte) error {
 func (d *Device) readStatus() (byte, error) {
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spiReadWrite([]byte{mcpReadStatus})
+	_, err := d.spiReadWrite(mcpReadStatus)
 	if err != nil {
 		return 0, err
 	}
@@ -650,7 +653,7 @@ func (d *Device) readStatus() (byte, error) {
 	}
 	d.cs.High()
 
-	return ret[0], nil
+	return ret, nil
 }
 
 func (d *Device) readRxTxStatus() (byte, error) {
@@ -673,26 +676,26 @@ func (d *Device) readRxTxStatus() (byte, error) {
 	return ret, nil
 }
 
-func (d *Device) spiReadWrite(w []byte) ([]byte, error) {
-	r := make([]byte, len(w))
-	err := d.bus.Tx(w, r)
+func (d *Device) spiReadWrite(w byte) (byte, error) {
+	d.tx[0] = w
+	err := d.bus.Tx(d.tx, d.rx)
 	if err != nil {
-		return nil, fmt.Errorf("spiReadWrite: %s", err)
+		return 0, fmt.Errorf("spiReadWrite: %s", err)
 	}
-	return r, nil
+	return d.rx[0], nil
 }
 
-func (d *Device) spiRead() ([]byte, error) {
-	r := make([]byte, 1)
-	err := d.bus.Tx(nil, r)
+func (d *Device) spiRead() (byte, error) {
+	err := d.bus.Tx(nil, d.rx)
 	if err != nil {
-		return nil, fmt.Errorf("spiRead: %s", err)
+		return 0, fmt.Errorf("spiRead: %s", err)
 	}
-	return r, nil
+	return d.rx[0], nil
 }
 
-func (d *Device) spiWrite(w []byte) error {
-	return d.bus.Tx(w, nil)
+func (d *Device) spiWrite(w byte) error {
+	d.tx[0] = w
+	return d.bus.Tx(d.tx, nil)
 }
 
 func (d *Device) dumpMode() error {
