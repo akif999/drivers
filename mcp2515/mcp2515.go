@@ -677,12 +677,11 @@ func (d *Device) readRxTxStatus() (byte, error) {
 }
 
 func (d *Device) spiReadWrite(w byte) (byte, error) {
-	d.tx[0] = w
-	err := d.bus.Tx(d.tx, d.rx)
+	rx, err := d.bus.Transfer(w)
 	if err != nil {
 		return 0, fmt.Errorf("spiReadWrite: %s", err)
 	}
-	return d.rx[0], nil
+	return rx, nil
 }
 
 func (d *Device) spiRead() (byte, error) {
