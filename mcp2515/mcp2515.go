@@ -406,20 +406,9 @@ func (d *Device) getNextFreeTxBuf() (uint8, uint8, error) {
 }
 
 func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8, data []byte) error {
-	loadAddr := txSidhToLoad(bufNum)
-
-	if rtrBit == 1 {
-		dlc |= mcpRtrMask
-	} else {
-		dlc |= (0)
-	}
-	txBufData := IDtoBuf(ext, canid)
-	txBufData = append(txBufData, dlc)
-	txBufData = append(txBufData, data...)
-
 	d.cs.Low()
 	defer d.cs.High()
-	_, err := d.spi.readWrite(loadAddr)
+	_, err := d.spi.readWrite(txSidhToLoad(bufNum))
 	if err != nil {
 		return err
 	}
@@ -427,11 +416,9 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 	if err != nil {
 		return err
 	}
-	for _, data := range txBufData {
-		err = d.spi.setTxData(data)
-		if err != nil {
-			return err
-		}
+	err = d.spi.setTxBufData(canid, ext, rtrBit, dlc, data)
+	if err != nil {
+		return err
 	}
 	err = d.spi.write()
 	if err != nil {
@@ -447,6 +434,63 @@ func (d *Device) writeCANMsg(bufNum uint8, canid uint32, ext, rtrBit, dlc uint8,
 	return nil
 }
 
+func (s *SPI) setTxBufData(canid uint32, ext, rtrBit, dlc uint8, data []byte) error {
+	canid = canid & 0x0FFFF
+	if ext == 1 {
+		// TODO: add Extended ID
+		err := s.setTxData(0)
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(0)
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(0)
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(0)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := s.setTxData(byte(canid >> 3))
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(byte((canid & 0x07) << 5))
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(0)
+		if err != nil {
+			return err
+		}
+		err = s.setTxData(0)
+		if err != nil {
+			return err
+		}
+	}
+	if rtrBit == 1 {
+		dlc |= mcpRtrMask
+	} else {
+		dlc |= (0)
+	}
+	err := s.setTxData(dlc)
+	if err != nil {
+		return err
+	}
+	for _, d := range data {
+		err := s.setTxData(d)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *Device) startTransmission(bufNum uint8) error {
 	d.cs.Low()
 	defer d.cs.High()
@@ -457,27 +501,6 @@ func (d *Device) startTransmission(bufNum uint8) error {
 	d.cs.High()
 
 	return nil
-}
-
-func IDtoBuf(ext uint8, id uint32) []byte {
-	buf := []byte{}
-
-	id = id & 0x0FFFF
-
-	if ext == 1 {
-		// TODO: add Extended ID
-		buf = append(buf, 0)
-		buf = append(buf, 0)
-		buf = append(buf, 0)
-		buf = append(buf, 0)
-	} else {
-		buf = append(buf, byte(id>>3))
-		buf = append(buf, byte((id&0x07)<<5))
-		buf = append(buf, 0)
-		buf = append(buf, 0)
-	}
-
-	return buf
 }
 
 func nReservedTx(number uint8) uint8 {
