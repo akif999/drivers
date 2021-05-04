@@ -27,6 +27,8 @@ type CANMsg struct {
 	ID   uint32
 	Dlc  uint8
 	Data []byte
+	Ext  bool
+	Rtr  bool
 }
 
 const (
@@ -84,7 +86,7 @@ func (d *Device) Received() bool {
 
 // Rx returns received CAN message
 func (d *Device) Rx() (*CANMsg, error) {
-	err := d.readMsg(d.msg)
+	err := d.readMsg()
 	return d.msg, err
 }
 
@@ -313,18 +315,18 @@ func (d *Device) initCANBuffers() error {
 	return nil
 }
 
-func (d *Device) readMsg(msg *CANMsg) error {
+func (d *Device) readMsg() error {
 	status, err := d.readRxTxStatus()
 	if err != nil {
 		return err
 	}
 	if (status & mcpRX0IF) == 0x01 {
-		msg.ID, _, _, msg.Dlc, msg.Data, err = d.readRxBuffer(mcpReadRx0)
+		err := d.readRxBuffer(mcpReadRx0)
 		if err != nil {
 			return err
 		}
 	} else if (status & mcpRX1IF) == 0x02 {
-		msg.ID, _, _, msg.Dlc, msg.Data, err = d.readRxBuffer(mcpReadRx1)
+		err := d.readRxBuffer(mcpReadRx1)
 		if err != nil {
 			return err
 		}
@@ -335,50 +337,50 @@ func (d *Device) readMsg(msg *CANMsg) error {
 	return nil
 }
 
-func (d *Device) readRxBuffer(loadAddr uint8) (uint32, uint8, uint8, uint8, []byte, error) {
+func (d *Device) readRxBuffer(loadAddr uint8) error {
+	msg := d.msg
 	d.cs.Low()
 	defer d.cs.High()
 	_, err := d.spi.readWrite(loadAddr)
 	if err != nil {
-		return 0, 0, 0, 0, []byte{}, err
+		return err
 	}
 	err = d.spi.read(4)
 	if err != nil {
-		return 0, 0, 0, 0, []byte{}, err
+		return err
 	}
 	buf := d.spi.rx
-	id := uint32((uint32(buf[0]) << 3) + (uint32(buf[1]) >> 5))
-	ext := uint8(0)
+	msg.ID = uint32((uint32(buf[0]) << 3) + (uint32(buf[1]) >> 5))
+	msg.Ext = false
 	if (buf[1] & mcpTxbExideM) == mcpTxbExideM {
 		// extended id
-		id = uint32(uint32(id<<2) + uint32(buf[1]&0x03))
-		id = uint32(uint32(id<<8) + uint32(buf[2]))
-		id = uint32(uint32(id<<8) + uint32(buf[3]))
-		ext = 1
+		msg.ID = uint32(uint32(msg.ID<<2) + uint32(buf[1]&0x03))
+		msg.ID = uint32(uint32(msg.ID<<8) + uint32(buf[2]))
+		msg.ID = uint32(uint32(msg.ID<<8) + uint32(buf[3]))
+		msg.Ext = true
 	}
 	err = d.spi.read(1)
 	if err != nil {
-		return 0, 0, 0, 0, []byte{}, err
+		return err
 	}
 	msgSize := d.spi.rx[0]
-	dlc := uint8(msgSize & mcpDlcMask)
-	rtrBit := uint8(0)
+	msg.Dlc = uint8(msgSize & mcpDlcMask)
+	msg.Rtr = false
 	if (msgSize & mcpRtrMask) == 0x40 {
-		rtrBit = 1
+		msg.Rtr = true
 	}
 	readLen := uint8(canMaxCharInMessage)
-	if dlc < canMaxCharInMessage {
-		readLen = dlc
+	if msg.Dlc < canMaxCharInMessage {
+		readLen = msg.Dlc
 	}
 	err = d.spi.read(int(readLen))
 	if err != nil {
-		return 0, 0, 0, 0, []byte{}, err
+		return err
 	}
-	data := d.spi.rx
-
+	msg.Data = d.spi.rx
 	d.cs.High()
 
-	return id, ext, rtrBit, dlc, data, nil
+	return err
 }
 
 func (d *Device) getNextFreeTxBuf() (uint8, uint8, error) {
