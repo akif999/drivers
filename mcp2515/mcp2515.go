@@ -22,7 +22,7 @@ type Device struct {
 	mcpMode byte
 }
 
-// CANMsg stores CAN message fields
+// CANMsg stores CAN message fields.
 type CANMsg struct {
 	ID   uint32
 	Dlc  uint8
@@ -50,7 +50,7 @@ func New(b drivers.SPI, csPin machine.Pin) *Device {
 	return d
 }
 
-// Configure sets up the device for communication
+// Configure sets up the device for communication.
 func (d *Device) Configure() {
 	d.cs.Configure(machine.PinConfig{Mode: machine.PinOutput})
 }
@@ -73,7 +73,7 @@ func (d *Device) Begin(speed byte, clock byte) error {
 	return nil
 }
 
-// Received returns true if CAN message is received
+// Received returns true if CAN message is received.
 func (d *Device) Received() bool {
 	res, err := d.readStatus()
 	if err != nil {
@@ -84,13 +84,13 @@ func (d *Device) Received() bool {
 	return (res & mcpStatRxifMask) != 0x00
 }
 
-// Rx returns received CAN message
+// Rx returns received CAN message.
 func (d *Device) Rx() (*CANMsg, error) {
 	err := d.readMsg()
 	return d.msg, err
 }
 
-// Tx transmits CAN Message
+// Tx transmits CAN Message.
 func (d *Device) Tx(canid uint32, dlc uint8, data []byte) error {
 	// TODO: add ext, rtrBit, waitSent
 	timeoutCount := 0
@@ -157,7 +157,7 @@ func (d *Device) init(speed, clock byte) error {
 	return nil
 }
 
-// Reset resets mcp2515
+// Reset resets mcp2515.
 func (d *Device) Reset() error {
 	d.cs.Low()
 	defer d.cs.High()
