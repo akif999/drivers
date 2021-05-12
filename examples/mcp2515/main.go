@@ -24,7 +24,7 @@ func main() {
 	can.Configure()
 	err := can.Begin(mcp2515.CAN500kBps, mcp2515.Clock8MHz)
 	if err != nil {
-		panic(err)
+		failMessage(err.Error())
 	}
 
 	for {

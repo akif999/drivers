@@ -160,10 +160,9 @@ func (d *Device) init(speed, clock byte) error {
 // Reset resets mcp2515.
 func (d *Device) Reset() error {
 	d.cs.Low()
-	defer d.cs.High()
 	_, err := d.spi.readWrite(mcpReset)
-	// time.Sleep(time.Microsecond * 4)
 	d.cs.High()
+	// time.Sleep(time.Microsecond * 4)
 	if err != nil {
 		return err
 	}
@@ -378,7 +377,6 @@ func (d *Device) readRxBuffer(loadAddr uint8) error {
 		return err
 	}
 	msg.Data = d.spi.rx
-	d.cs.High()
 
 	return err
 }
@@ -495,12 +493,11 @@ func (s *SPI) setTxBufData(canid uint32, ext, rtrBit, dlc uint8, data []byte) er
 
 func (d *Device) startTransmission(bufNum uint8) error {
 	d.cs.Low()
-	defer d.cs.High()
 	_, err := d.spi.readWrite(txSidhToRTS(bufNum))
+	d.cs.High()
 	if err != nil {
 		return err
 	}
-	d.cs.High()
 
 	return nil
 }
@@ -606,7 +603,6 @@ func (d *Device) setRegister(addr, value byte) error {
 		return err
 	}
 	// time.Sleep(time.Microsecond * 4)
-	d.cs.High()
 
 	return nil
 }
@@ -627,7 +623,6 @@ func (d *Device) readRegister(addr byte) (byte, error) {
 		return 0, err
 	}
 	// time.Sleep(time.Microsecond * 4)
-	d.cs.High()
 	return d.spi.rx[0], nil
 }
 
@@ -651,7 +646,6 @@ func (d *Device) modifyRegister(addr, mask, data byte) error {
 		return err
 	}
 	// time.Sleep(time.Microsecond * 4)
-	d.cs.High()
 
 	return nil
 }
@@ -686,7 +680,6 @@ func (d *Device) readStatus() (byte, error) {
 	if err != nil {
 		return 0, err
 	}
-	d.cs.High()
 
 	return d.spi.rx[0], nil
 }
